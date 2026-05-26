@@ -49,12 +49,14 @@ namespace DabTimer
         private readonly Button settingsButton;
         private readonly Button closeButton;
         private readonly Panel settingsPanel;
-        private readonly TrackBar startRedSlider;
-        private readonly TrackBar startGreenSlider;
-        private readonly TrackBar startBlueSlider;
-        private readonly TrackBar endRedSlider;
-        private readonly TrackBar endGreenSlider;
-        private readonly TrackBar endBlueSlider;
+        private readonly ColorSlider startRedSlider;
+        private readonly ColorSlider startGreenSlider;
+        private readonly ColorSlider startBlueSlider;
+        private readonly ColorSlider endRedSlider;
+        private readonly ColorSlider endGreenSlider;
+        private readonly ColorSlider endBlueSlider;
+        private readonly TextBox startHexBox;
+        private readonly TextBox endHexBox;
         private readonly Panel startPreview;
         private readonly Panel endPreview;
         private readonly Timer startDelayTimer;
@@ -65,6 +67,7 @@ namespace DabTimer
         private int postPhaseRemaining;
         private bool running;
         private bool heatSoundPlayed;
+        private bool updatingColorFields;
         private string postPhaseName = "";
 
         public TimerForm()
@@ -72,7 +75,7 @@ namespace DabTimer
             LoadSettings();
 
             Text = "DAB TIME";
-            ClientSize = new Size(720, 480);
+            ClientSize = new Size(800, 540);
             FormBorderStyle = FormBorderStyle.None;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
@@ -102,45 +105,46 @@ namespace DabTimer
             Controls.Add(timeLabel);
 
             startButton = CreateButton("Start");
-            startButton.SetBounds(170, 306, 170, 70);
+            startButton.SetBounds(210, 326, 170, 70);
             startButton.Click += StartClicked;
             Controls.Add(startButton);
 
             stopButton = CreateButton("Stop");
-            stopButton.SetBounds(380, 306, 170, 70);
+            stopButton.SetBounds(420, 326, 170, 70);
             stopButton.Enabled = false;
             stopButton.Click += StopClicked;
             Controls.Add(stopButton);
 
-            closeButton = CreateIconButton("x");
-            closeButton.SetBounds(ClientSize.Width - 50, 14, 36, 36);
+            closeButton = CreateCloseButton();
+            closeButton.SetBounds(ClientSize.Width - 38, 12, 24, 24);
             closeButton.Click += CloseClicked;
             Controls.Add(closeButton);
 
             settingsButton = CreateIconButton("+");
-            settingsButton.SetBounds(14, ClientSize.Height - 50, 36, 36);
+            settingsButton.SetBounds(16, ClientSize.Height - 48, 34, 34);
             settingsButton.Click += ToggleSettings;
             Controls.Add(settingsButton);
 
             settingsPanel = new Panel();
-            settingsPanel.SetBounds(14, ClientSize.Height - 282, 255, 222);
-            settingsPanel.BackColor = Color.FromArgb(232, 4, 12, 13);
+            settingsPanel.SetBounds(16, ClientSize.Height - 346, 438, 286);
+            settingsPanel.BackColor = Color.Transparent;
             settingsPanel.Visible = false;
             Controls.Add(settingsPanel);
             settingsPanel.BringToFront();
             settingsButton.BringToFront();
+            closeButton.BringToFront();
 
-            startPreview = CreatePreview(16, 16);
+            startPreview = CreatePreview(24, 20);
             settingsPanel.Controls.Add(startPreview);
-            endPreview = CreatePreview(140, 16);
+            endPreview = CreatePreview(226, 20);
             settingsPanel.Controls.Add(endPreview);
 
-            startRedSlider = CreateSlider(16, 48, gradientStart.R);
-            startGreenSlider = CreateSlider(16, 84, gradientStart.G);
-            startBlueSlider = CreateSlider(16, 120, gradientStart.B);
-            endRedSlider = CreateSlider(140, 48, gradientEnd.R);
-            endGreenSlider = CreateSlider(140, 84, gradientEnd.G);
-            endBlueSlider = CreateSlider(140, 120, gradientEnd.B);
+            startRedSlider = CreateSlider(24, 62, gradientStart.R);
+            startGreenSlider = CreateSlider(24, 108, gradientStart.G);
+            startBlueSlider = CreateSlider(24, 154, gradientStart.B);
+            endRedSlider = CreateSlider(226, 62, gradientEnd.R);
+            endGreenSlider = CreateSlider(226, 108, gradientEnd.G);
+            endBlueSlider = CreateSlider(226, 154, gradientEnd.B);
 
             settingsPanel.Controls.Add(startRedSlider);
             settingsPanel.Controls.Add(startGreenSlider);
@@ -148,6 +152,11 @@ namespace DabTimer
             settingsPanel.Controls.Add(endRedSlider);
             settingsPanel.Controls.Add(endGreenSlider);
             settingsPanel.Controls.Add(endBlueSlider);
+
+            startHexBox = CreateHexBox(24, 222, ColorToHex(gradientStart));
+            endHexBox = CreateHexBox(226, 222, ColorToHex(gradientEnd));
+            settingsPanel.Controls.Add(startHexBox);
+            settingsPanel.Controls.Add(endHexBox);
             AddSliderLabels();
 
             startDelayTimer = new Timer();
@@ -232,44 +241,76 @@ namespace DabTimer
             return button;
         }
 
+        private Button CreateCloseButton()
+        {
+            Button button = new Button();
+            button.Text = "X";
+            button.Font = new Font("Arial", 9f, FontStyle.Bold, GraphicsUnit.Point);
+            button.BackColor = Color.Transparent;
+            button.ForeColor = Color.White;
+            button.FlatStyle = FlatStyle.Flat;
+            button.FlatAppearance.BorderSize = 0;
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(90, 255, 255, 255);
+            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(130, 255, 255, 255);
+            button.UseVisualStyleBackColor = false;
+            button.TextAlign = ContentAlignment.MiddleCenter;
+            return button;
+        }
+
         private Panel CreatePreview(int x, int y)
         {
             Panel panel = new Panel();
-            panel.SetBounds(x, y, 96, 18);
+            panel.SetBounds(x, y, 170, 22);
             panel.BackColor = Color.White;
             return panel;
         }
 
-        private TrackBar CreateSlider(int x, int y, int value)
+        private ColorSlider CreateSlider(int x, int y, int value)
         {
-            TrackBar slider = new TrackBar();
-            slider.SetBounds(x, y, 96, 30);
-            slider.Minimum = 0;
-            slider.Maximum = 255;
-            slider.TickStyle = TickStyle.None;
+            ColorSlider slider = new ColorSlider();
+            slider.SetBounds(x, y, 170, 34);
             slider.Value = value;
-            slider.Scroll += ColorSliderChanged;
+            slider.ValueChanged += ColorSliderChanged;
             return slider;
+        }
+
+        private TextBox CreateHexBox(int x, int y, string value)
+        {
+            TextBox box = new TextBox();
+            box.SetBounds(x, y, 170, 28);
+            box.BorderStyle = BorderStyle.FixedSingle;
+            box.BackColor = Color.FromArgb(18, 24, 24);
+            box.ForeColor = Color.White;
+            box.Font = new Font("Consolas", 13f, FontStyle.Bold, GraphicsUnit.Point);
+            box.Text = value;
+            box.TextAlign = HorizontalAlignment.Center;
+            box.TextChanged += HexBoxChanged;
+            box.Leave += HexBoxLeave;
+            box.KeyDown += HexBoxKeyDown;
+            box.Click += HexBoxClick;
+            return box;
         }
 
         private void AddSliderLabels()
         {
-            AddSliderLabel("A", 16, 166);
-            AddSliderLabel("B", 140, 166);
-            AddSliderLabel("R", 116, 50);
-            AddSliderLabel("G", 116, 86);
-            AddSliderLabel("B", 116, 122);
-            AddSliderLabel("R", 240, 50);
-            AddSliderLabel("G", 240, 86);
-            AddSliderLabel("B", 240, 122);
+            AddSliderLabel("A", 24, 2, 70);
+            AddSliderLabel("B", 226, 2, 70);
+            AddSliderLabel("R", 198, 70, 18);
+            AddSliderLabel("G", 198, 116, 18);
+            AddSliderLabel("B", 198, 162, 18);
+            AddSliderLabel("R", 400, 70, 18);
+            AddSliderLabel("G", 400, 116, 18);
+            AddSliderLabel("B", 400, 162, 18);
+            AddSliderLabel("HEX", 24, 202, 70);
+            AddSliderLabel("HEX", 226, 202, 70);
             UpdateColorPreviews();
         }
 
-        private void AddSliderLabel(string text, int x, int y)
+        private void AddSliderLabel(string text, int x, int y, int width)
         {
             Label label = new Label();
             label.AutoSize = false;
-            label.SetBounds(x, y, 16, 18);
+            label.SetBounds(x, y, width, 18);
             label.BackColor = Color.Transparent;
             label.ForeColor = Color.White;
             label.Font = new Font("Arial Black", 8f, FontStyle.Bold, GraphicsUnit.Point);
@@ -435,6 +476,11 @@ namespace DabTimer
 
         private void ColorSliderChanged(object sender, EventArgs e)
         {
+            if (updatingColorFields)
+            {
+                return;
+            }
+
             gradientStart = Color.FromArgb(startRedSlider.Value, startGreenSlider.Value, startBlueSlider.Value);
             gradientEnd = Color.FromArgb(endRedSlider.Value, endGreenSlider.Value, endBlueSlider.Value);
             UpdateColorPreviews();
@@ -446,6 +492,102 @@ namespace DabTimer
         {
             startPreview.BackColor = gradientStart;
             endPreview.BackColor = gradientEnd;
+            UpdateHexBoxes();
+        }
+
+        private void UpdateHexBoxes()
+        {
+            if (startHexBox == null || endHexBox == null)
+            {
+                return;
+            }
+
+            updatingColorFields = true;
+            startHexBox.Text = ColorToHex(gradientStart);
+            endHexBox.Text = ColorToHex(gradientEnd);
+            startHexBox.BackColor = Color.FromArgb(18, 24, 24);
+            endHexBox.BackColor = Color.FromArgb(18, 24, 24);
+            updatingColorFields = false;
+        }
+
+        private void HexBoxChanged(object sender, EventArgs e)
+        {
+            if (updatingColorFields)
+            {
+                return;
+            }
+
+            TextBox box = sender as TextBox;
+            Color parsed;
+            if (box == null || !TryParseColor(box.Text, out parsed))
+            {
+                if (box != null)
+                {
+                    box.BackColor = Color.FromArgb(62, 18, 24);
+                }
+                return;
+            }
+
+            box.BackColor = Color.FromArgb(18, 24, 24);
+            if (box == startHexBox)
+            {
+                gradientStart = parsed;
+            }
+            else
+            {
+                gradientEnd = parsed;
+            }
+
+            SyncSlidersToColors();
+            SaveSettings();
+            Invalidate();
+        }
+
+        private void HexBoxLeave(object sender, EventArgs e)
+        {
+            TextBox box = sender as TextBox;
+            Color parsed;
+            if (box == null || !TryParseColor(box.Text, out parsed))
+            {
+                UpdateHexBoxes();
+                return;
+            }
+
+            updatingColorFields = true;
+            box.Text = ColorToHex(parsed);
+            updatingColorFields = false;
+        }
+
+        private void HexBoxKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                HexBoxLeave(sender, EventArgs.Empty);
+                e.SuppressKeyPress = true;
+            }
+        }
+
+        private void HexBoxClick(object sender, EventArgs e)
+        {
+            TextBox box = sender as TextBox;
+            if (box != null)
+            {
+                box.SelectAll();
+            }
+        }
+
+        private void SyncSlidersToColors()
+        {
+            updatingColorFields = true;
+            startRedSlider.Value = gradientStart.R;
+            startGreenSlider.Value = gradientStart.G;
+            startBlueSlider.Value = gradientStart.B;
+            endRedSlider.Value = gradientEnd.R;
+            endGreenSlider.Value = gradientEnd.G;
+            endBlueSlider.Value = gradientEnd.B;
+            startPreview.BackColor = gradientStart;
+            endPreview.BackColor = gradientEnd;
+            updatingColorFields = false;
         }
 
         private void LoadSettings()
@@ -494,7 +636,18 @@ namespace DabTimer
         private static bool TryParseColor(string value, out Color color)
         {
             color = Color.Empty;
-            if (string.IsNullOrEmpty(value) || value.Length != 7 || value[0] != '#')
+            if (string.IsNullOrEmpty(value))
+            {
+                return false;
+            }
+
+            value = value.Trim();
+            if (value.Length == 6)
+            {
+                value = "#" + value;
+            }
+
+            if (value.Length != 7 || value[0] != '#')
             {
                 return false;
             }
@@ -591,6 +744,113 @@ namespace DabTimer
             Rectangle shadowRect = new Rectangle(ClientRectangle.X + 4, ClientRectangle.Y + 5, ClientRectangle.Width, ClientRectangle.Height);
             TextRenderer.DrawText(e.Graphics, Text, Font, shadowRect, Color.FromArgb(150, 0, 0, 0), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
             TextRenderer.DrawText(e.Graphics, Text, Font, ClientRectangle, ForeColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+        }
+    }
+
+    internal sealed class ColorSlider : Control
+    {
+        private int value;
+        public event EventHandler ValueChanged;
+
+        public ColorSlider()
+        {
+            SetStyle(ControlStyles.SupportsTransparentBackColor, true);
+            SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
+            SetStyle(ControlStyles.AllPaintingInWmPaint, true);
+            SetStyle(ControlStyles.UserPaint, true);
+            BackColor = Color.Transparent;
+            Cursor = Cursors.Hand;
+        }
+
+        public int Value
+        {
+            get
+            {
+                return value;
+            }
+            set
+            {
+                int clamped = Math.Max(0, Math.Min(255, value));
+                if (this.value == clamped)
+                {
+                    return;
+                }
+
+                this.value = clamped;
+                Invalidate();
+                if (ValueChanged != null)
+                {
+                    ValueChanged(this, EventArgs.Empty);
+                }
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            e.Graphics.SmoothingMode = SmoothingMode.HighQuality;
+
+            int trackY = Height / 2 - 4;
+            Rectangle track = new Rectangle(8, trackY, Width - 16, 8);
+            using (GraphicsPath path = RoundedRect(track, 4))
+            using (SolidBrush background = new SolidBrush(Color.FromArgb(88, 255, 255, 255)))
+            {
+                e.Graphics.FillPath(background, path);
+            }
+
+            int fillWidth = Math.Max(8, (int)Math.Round(track.Width * (Value / 255.0)));
+            Rectangle fill = new Rectangle(track.X, track.Y, fillWidth, track.Height);
+            using (GraphicsPath path = RoundedRect(fill, 4))
+            using (SolidBrush brush = new SolidBrush(Color.FromArgb(220, 255, 255, 255)))
+            {
+                e.Graphics.FillPath(brush, path);
+            }
+
+            int knobX = track.X + (int)Math.Round(track.Width * (Value / 255.0));
+            Rectangle knob = new Rectangle(knobX - 9, Height / 2 - 9, 18, 18);
+            using (SolidBrush shadow = new SolidBrush(Color.FromArgb(150, 0, 0, 0)))
+            {
+                e.Graphics.FillEllipse(shadow, knob.X + 2, knob.Y + 3, knob.Width, knob.Height);
+            }
+            using (SolidBrush knobBrush = new SolidBrush(Color.White))
+            {
+                e.Graphics.FillEllipse(knobBrush, knob);
+            }
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            UpdateValueFromMouse(e.X);
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            if (e.Button == MouseButtons.Left)
+            {
+                UpdateValueFromMouse(e.X);
+            }
+        }
+
+        private void UpdateValueFromMouse(int x)
+        {
+            int left = 8;
+            int width = Width - 16;
+            double ratio = (x - left) / (double)width;
+            Value = (int)Math.Round(Math.Max(0, Math.Min(1, ratio)) * 255);
+        }
+
+        private static GraphicsPath RoundedRect(Rectangle bounds, int radius)
+        {
+            int diameter = radius * 2;
+            GraphicsPath path = new GraphicsPath();
+            path.AddArc(bounds.X, bounds.Y, diameter, diameter, 180, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Y, diameter, diameter, 270, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(bounds.X, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+            return path;
         }
     }
 }

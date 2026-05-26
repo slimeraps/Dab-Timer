@@ -8,12 +8,13 @@ flow.
 - 90-second main countdown with a 1-second start delay.
 - Heating, cooling, dropping dab, and dabbing phases.
 - Sound cues for heat completion and timer completion.
-- Borderless custom window with a top-right close button.
+- Borderless custom window with a small top-right close button.
 - Drag-to-move support from the background and large timer text.
 - WAV WRLD app icon embedded into the executable and taskbar window.
 - Custom gradient background.
 - Bottom-left `+` button for opening gradient color controls.
-- RGB sliders for both gradient colors.
+- Larger transparent RGB sliders for both gradient colors.
+- Hex color fields for typing, selecting, or copying the current gradient colors.
 - Saved color preferences at `%APPDATA%\DabTimer\settings.txt`.
 
 ## Build
@@ -36,7 +37,7 @@ dist\Dab Timer.exe
 Build the release installer after building the app:
 
 ```powershell
-C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /platform:x64 /optimize+ /win32icon:"assets\app.ico" /out:"release\DabTimerSetup-1.0.exe" /resource:"dist\Dab Timer.exe,DabTimerInstaller.Payload.Dab Timer.exe" "src\DabTimerInstaller\Program.cs"
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /platform:x64 /optimize+ /win32icon:"assets\app.ico" /out:"release\DabTimerSetup-1.0.2.exe" /resource:"dist\Dab Timer.exe,DabTimerInstaller.Payload.Dab Timer.exe" "src\DabTimerInstaller\Program.cs"
 ```
 
 The installer installs Dab Timer to:
@@ -51,17 +52,25 @@ Windows Apps & Features.
 Silent install and uninstall are available for testing:
 
 ```powershell
-release\DabTimerSetup-1.0.exe /silent
+release\DabTimerSetup-1.0.2.exe /silent
 "%LOCALAPPDATA%\Programs\Dab Timer\Uninstall Dab Timer.exe" /uninstall /silent
 ```
 
 For a GitHub Release, upload:
 
 ```text
-release\DabTimerSetup-1.0.exe
+release\DabTimerSetup-1.0.2.exe
 ```
 
 ## Changelog
+
+### 1.0.2
+
+- Changed the borderless close control to a smaller top-right `X`.
+- Expanded the gradient settings panel and made the color sliders larger.
+- Replaced stock slider controls with transparent custom-drawn sliders.
+- Added hex color inputs that can be typed into or selected for copying.
+- Updated installer metadata and release artifact for `1.0.2`.
 
 ### 1.0.1
 
