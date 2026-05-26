@@ -15,6 +15,7 @@ flow.
 - Default gradient starts as dark gray and blue.
 - Smooth phase text transitions.
 - Smooth gradient fades when colors change.
+- Single centered Start/Stop control.
 - Bottom-left `+` button for opening gradient color controls.
 - Larger transparent RGB sliders for both gradient colors.
 - Hex color fields for typing, selecting, or copying the current gradient colors.
@@ -42,7 +43,7 @@ dist\Dab Timer.exe
 Build the release installer after building the app:
 
 ```powershell
-C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /platform:x64 /optimize+ /win32icon:"assets\app.ico" /out:"release\DabTimerSetup-1.0.5.exe" /resource:"dist\Dab Timer.exe,DabTimerInstaller.Payload.Dab Timer.exe" "src\DabTimerInstaller\Program.cs"
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /platform:x64 /optimize+ /win32icon:"assets\app.ico" /out:"release\DabTimerSetup-1.1.exe" /resource:"dist\Dab Timer.exe,DabTimerInstaller.Payload.Dab Timer.exe" "src\DabTimerInstaller\Program.cs"
 ```
 
 The installer installs Dab Timer to:
@@ -57,17 +58,24 @@ Windows Apps & Features.
 Silent install and uninstall are available for testing:
 
 ```powershell
-release\DabTimerSetup-1.0.5.exe /silent
+release\DabTimerSetup-1.1.exe /silent
 "%LOCALAPPDATA%\Programs\Dab Timer\Uninstall Dab Timer.exe" /uninstall /silent
 ```
 
 For a GitHub Release, upload:
 
 ```text
-release\DabTimerSetup-1.0.5.exe
+release\DabTimerSetup-1.1.exe
 ```
 
 ## Changelog
+
+### 1.1
+
+- Replaced separate Start and Stop buttons with one centered toggle button.
+- Shifted the phase label, timer text, and main control downward for better visual centering.
+- Made Stop transition the phase label back to `DAB TIME` using the same smooth fade animation.
+- Updated installer metadata and release artifact for `1.1`.
 
 ### 1.0.5
 

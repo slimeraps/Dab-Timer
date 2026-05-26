@@ -51,8 +51,7 @@ namespace DabTimer
 
         private readonly GlowLabel phaseLabel;
         private readonly GlowLabel timeLabel;
-        private readonly Button startButton;
-        private readonly Button stopButton;
+        private readonly Button toggleButton;
         private readonly Button settingsButton;
         private readonly Button closeButton;
         private readonly SpeakerButton speakerButton;
@@ -108,7 +107,7 @@ namespace DabTimer
             phaseLabel.Font = CreateDisplayFont(38f);
             phaseLabel.Text = "DAB TIME";
             phaseLabel.TextAlign = ContentAlignment.MiddleCenter;
-            phaseLabel.SetBounds(0, 18, ClientSize.Width, 76);
+            phaseLabel.SetBounds(0, 46, ClientSize.Width, 76);
             phaseLabel.MouseDown += DragMouseDown;
             Controls.Add(phaseLabel);
 
@@ -119,20 +118,14 @@ namespace DabTimer
             timeLabel.Font = CreateDisplayFont(106f);
             timeLabel.Text = FormatTime(remaining);
             timeLabel.TextAlign = ContentAlignment.MiddleCenter;
-            timeLabel.SetBounds(0, 78, ClientSize.Width, 220);
+            timeLabel.SetBounds(0, 116, ClientSize.Width, 220);
             timeLabel.MouseDown += DragMouseDown;
             Controls.Add(timeLabel);
 
-            startButton = CreateButton("Start");
-            startButton.SetBounds(210, 326, 170, 70);
-            startButton.Click += StartClicked;
-            Controls.Add(startButton);
-
-            stopButton = CreateButton("Stop");
-            stopButton.SetBounds(420, 326, 170, 70);
-            stopButton.Enabled = false;
-            stopButton.Click += StopClicked;
-            Controls.Add(stopButton);
+            toggleButton = CreateButton("Start");
+            toggleButton.SetBounds((ClientSize.Width - 190) / 2, 374, 190, 70);
+            toggleButton.Click += ToggleTimerClicked;
+            Controls.Add(toggleButton);
 
             closeButton = CreateCloseButton();
             closeButton.SetBounds(ClientSize.Width - 38, 12, 24, 24);
@@ -378,7 +371,19 @@ namespace DabTimer
             settingsPanel.Controls.Add(label);
         }
 
-        private void StartClicked(object sender, EventArgs e)
+        private void ToggleTimerClicked(object sender, EventArgs e)
+        {
+            if (running)
+            {
+                ResetTimer(true);
+            }
+            else
+            {
+                StartTimer();
+            }
+        }
+
+        private void StartTimer()
         {
             if (running)
             {
@@ -395,8 +400,7 @@ namespace DabTimer
             SetDefaultColors();
             phaseLabel.Text = "DAB TIME";
             timeLabel.Text = FormatTime(remaining);
-            startButton.Enabled = false;
-            stopButton.Enabled = true;
+            toggleButton.Text = "Stop";
             startDelayTimer.Start();
         }
 
@@ -411,11 +415,6 @@ namespace DabTimer
             SetPhase("HEAT", heatingForeground);
             CountdownTick(sender, e);
             countdownTimer.Start();
-        }
-
-        private void StopClicked(object sender, EventArgs e)
-        {
-            ResetTimer();
         }
 
         private void CountdownTick(object sender, EventArgs e)
@@ -457,8 +456,7 @@ namespace DabTimer
             Activate();
             TopMost = false;
 
-            startButton.Enabled = false;
-            stopButton.Enabled = false;
+            toggleButton.Enabled = false;
             StartPostPhase("DROP DAB");
         }
 
@@ -491,7 +489,7 @@ namespace DabTimer
             postPhaseRemaining -= 1;
         }
 
-        private void ResetTimer()
+        private void ResetTimer(bool animatePhase)
         {
             StopAllTimers();
             running = false;
@@ -500,11 +498,20 @@ namespace DabTimer
             heatSoundPlayed = false;
             postPhaseName = "";
 
-            SetDefaultColors();
-            phaseLabel.Text = "DAB TIME";
+            if (animatePhase)
+            {
+                timeLabel.ForeColor = defaultForeground;
+                SetPhase("DAB TIME", defaultForeground);
+                Invalidate();
+            }
+            else
+            {
+                SetDefaultColors();
+                phaseLabel.Text = "DAB TIME";
+            }
             timeLabel.Text = FormatTime(remaining);
-            startButton.Enabled = true;
-            stopButton.Enabled = false;
+            toggleButton.Text = "Start";
+            toggleButton.Enabled = true;
         }
 
         private void StopAllTimers()
