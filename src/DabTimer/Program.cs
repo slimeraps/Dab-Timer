@@ -119,7 +119,7 @@ namespace DabTimer
             timeLabel.Font = CreateDisplayFont(106f);
             timeLabel.Text = FormatTime(remaining);
             timeLabel.TextAlign = ContentAlignment.MiddleCenter;
-            timeLabel.SetBounds(0, 108, ClientSize.Width, 150);
+            timeLabel.SetBounds(0, 78, ClientSize.Width, 220);
             timeLabel.MouseDown += DragMouseDown;
             Controls.Add(timeLabel);
 
