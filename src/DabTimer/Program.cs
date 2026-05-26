@@ -2,7 +2,6 @@ using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
-using System.Media;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -33,9 +32,13 @@ namespace DabTimer
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "DabTimer",
             "settings.txt");
+        private readonly string soundCacheDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "DabTimer",
+            "sounds");
 
-        private Color gradientStart = ColorTranslator.FromHtml("#020304");
-        private Color gradientEnd = ColorTranslator.FromHtml("#1f5f5d");
+        private Color gradientStart = ColorTranslator.FromHtml("#171B22");
+        private Color gradientEnd = ColorTranslator.FromHtml("#155BBA");
         private readonly Color defaultForeground = Color.White;
         private readonly Color heatingForeground = ColorTranslator.FromHtml("#ff6118");
         private readonly Color coolingForeground = ColorTranslator.FromHtml("#90dfff");
@@ -50,7 +53,9 @@ namespace DabTimer
         private readonly Button stopButton;
         private readonly Button settingsButton;
         private readonly Button closeButton;
+        private readonly SpeakerButton speakerButton;
         private readonly Panel settingsPanel;
+        private readonly Panel volumePanel;
         private readonly ColorSlider startRedSlider;
         private readonly ColorSlider startGreenSlider;
         private readonly ColorSlider startBlueSlider;
@@ -61,12 +66,15 @@ namespace DabTimer
         private readonly TextBox endHexBox;
         private readonly Panel startPreview;
         private readonly Panel endPreview;
+        private readonly VolumeSlider volumeSlider;
+        private readonly Label volumeLabel;
         private readonly Timer startDelayTimer;
         private readonly Timer countdownTimer;
         private readonly Timer postPhaseTimer;
 
         private int remaining = TotalSeconds;
         private int postPhaseRemaining;
+        private int soundVolume = 30;
         private bool running;
         private bool heatSoundPlayed;
         private bool updatingColorFields;
@@ -127,6 +135,11 @@ namespace DabTimer
             settingsButton.Click += ToggleSettings;
             Controls.Add(settingsButton);
 
+            speakerButton = new SpeakerButton();
+            speakerButton.SetBounds(ClientSize.Width - 50, ClientSize.Height - 48, 34, 34);
+            speakerButton.Click += ToggleVolume;
+            Controls.Add(speakerButton);
+
             settingsPanel = new Panel();
             settingsPanel.SetBounds(16, ClientSize.Height - 346, 438, 286);
             settingsPanel.BackColor = Color.Transparent;
@@ -134,7 +147,32 @@ namespace DabTimer
             Controls.Add(settingsPanel);
             settingsPanel.BringToFront();
             settingsButton.BringToFront();
+            speakerButton.BringToFront();
             closeButton.BringToFront();
+
+            volumePanel = new Panel();
+            volumePanel.SetBounds(ClientSize.Width - 78, ClientSize.Height - 234, 62, 174);
+            volumePanel.BackColor = Color.Transparent;
+            volumePanel.Visible = false;
+            Controls.Add(volumePanel);
+            volumePanel.BringToFront();
+            speakerButton.BringToFront();
+            closeButton.BringToFront();
+
+            volumeSlider = new VolumeSlider();
+            volumeSlider.SetBounds(18, 10, 26, 118);
+            volumeSlider.Value = soundVolume;
+            volumeSlider.ValueChanged += VolumeSliderChanged;
+            volumePanel.Controls.Add(volumeSlider);
+
+            volumeLabel = new Label();
+            volumeLabel.SetBounds(0, 136, volumePanel.Width, 24);
+            volumeLabel.BackColor = Color.Transparent;
+            volumeLabel.ForeColor = Color.White;
+            volumeLabel.Font = new Font("Arial Black", 8f, FontStyle.Bold, GraphicsUnit.Point);
+            volumeLabel.TextAlign = ContentAlignment.MiddleCenter;
+            volumePanel.Controls.Add(volumeLabel);
+            UpdateVolumeLabel();
 
             startPreview = CreatePreview(24, 20);
             settingsPanel.Controls.Add(startPreview);
@@ -179,6 +217,9 @@ namespace DabTimer
 
         [DllImport("user32.dll")]
         private static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
+
+        [DllImport("winmm.dll", CharSet = CharSet.Unicode)]
+        private static extern int mciSendString(string command, string returnValue, int returnLength, IntPtr winHandle);
 
         protected override void OnPaintBackground(PaintEventArgs e)
         {
@@ -476,6 +517,11 @@ namespace DabTimer
             settingsButton.Text = settingsPanel.Visible ? "x" : "+";
         }
 
+        private void ToggleVolume(object sender, EventArgs e)
+        {
+            volumePanel.Visible = !volumePanel.Visible;
+        }
+
         private void CloseClicked(object sender, EventArgs e)
         {
             Close();
@@ -493,6 +539,21 @@ namespace DabTimer
             UpdateColorPreviews();
             SaveSettings();
             Invalidate();
+        }
+
+        private void VolumeSliderChanged(object sender, EventArgs e)
+        {
+            soundVolume = volumeSlider.Value;
+            UpdateVolumeLabel();
+            SaveSettings();
+        }
+
+        private void UpdateVolumeLabel()
+        {
+            if (volumeLabel != null)
+            {
+                volumeLabel.Text = soundVolume + "%";
+            }
         }
 
         private void UpdateColorPreviews()
@@ -613,19 +674,29 @@ namespace DabTimer
                     continue;
                 }
 
-                Color parsed;
-                if (!TryParseColor(parts[1], out parsed))
-                {
-                    continue;
-                }
-
                 if (parts[0] == "gradientStart")
                 {
-                    gradientStart = parsed;
+                    Color parsed;
+                    if (TryParseColor(parts[1], out parsed))
+                    {
+                        gradientStart = parsed;
+                    }
                 }
                 else if (parts[0] == "gradientEnd")
                 {
-                    gradientEnd = parsed;
+                    Color parsed;
+                    if (TryParseColor(parts[1], out parsed))
+                    {
+                        gradientEnd = parsed;
+                    }
+                }
+                else if (parts[0] == "soundVolume")
+                {
+                    int parsedVolume;
+                    if (int.TryParse(parts[1], out parsedVolume))
+                    {
+                        soundVolume = Math.Max(0, Math.Min(100, parsedVolume));
+                    }
                 }
             }
         }
@@ -636,7 +707,8 @@ namespace DabTimer
             File.WriteAllLines(settingsPath, new string[]
             {
                 "gradientStart=" + ColorToHex(gradientStart),
-                "gradientEnd=" + ColorToHex(gradientEnd)
+                "gradientEnd=" + ColorToHex(gradientEnd),
+                "soundVolume=" + soundVolume
             });
         }
 
@@ -702,16 +774,58 @@ namespace DabTimer
             return new Font("Segoe UI", size, FontStyle.Bold, GraphicsUnit.Point);
         }
 
-        private static void PlaySound(string resourceName)
+        private void PlaySound(string resourceName)
         {
-            Stream resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
-            if (resourceStream == null)
+            string soundPath = ExtractSoundResource(resourceName);
+            if (soundPath == null)
             {
                 return;
             }
 
-            SoundPlayer player = new SoundPlayer(resourceStream);
-            player.Play();
+            string alias = "dabtimer_" + Guid.NewGuid().ToString("N");
+            int mediaVolume = Math.Max(0, Math.Min(1000, soundVolume * 10));
+            mciSendString("open \"" + soundPath + "\" type waveaudio alias " + alias, null, 0, IntPtr.Zero);
+            mciSendString("setaudio " + alias + " volume to " + mediaVolume, null, 0, IntPtr.Zero);
+            mciSendString("play " + alias + " from 0", null, 0, IntPtr.Zero);
+
+            Timer cleanupTimer = new Timer();
+            cleanupTimer.Interval = 12000;
+            cleanupTimer.Tick += delegate
+            {
+                cleanupTimer.Stop();
+                cleanupTimer.Dispose();
+                mciSendString("close " + alias, null, 0, IntPtr.Zero);
+            };
+            cleanupTimer.Start();
+        }
+
+        private string ExtractSoundResource(string resourceName)
+        {
+            Directory.CreateDirectory(soundCacheDirectory);
+            string fileName = resourceName.EndsWith("heat_finished.wav", StringComparison.OrdinalIgnoreCase)
+                ? "heat_finished.wav"
+                : "timer_finished.wav";
+            string outputPath = Path.Combine(soundCacheDirectory, fileName);
+
+            if (File.Exists(outputPath))
+            {
+                return outputPath;
+            }
+
+            using (Stream resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
+            {
+                if (resourceStream == null)
+                {
+                    return null;
+                }
+
+                using (FileStream output = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
+                {
+                    resourceStream.CopyTo(output);
+                }
+            }
+
+            return outputPath;
         }
 
         private static Icon LoadIconResource()
@@ -858,6 +972,172 @@ namespace DabTimer
             path.AddArc(bounds.X, bounds.Bottom - diameter, diameter, diameter, 90, 90);
             path.CloseFigure();
             return path;
+        }
+    }
+
+    internal sealed class VolumeSlider : Control
+    {
+        private int value;
+        public event EventHandler ValueChanged;
+
+        public VolumeSlider()
+        {
+            SetStyle(ControlStyles.SupportsTransparentBackColor, true);
+            SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
+            SetStyle(ControlStyles.AllPaintingInWmPaint, true);
+            SetStyle(ControlStyles.UserPaint, true);
+            BackColor = Color.Transparent;
+            Cursor = Cursors.Hand;
+        }
+
+        public int Value
+        {
+            get
+            {
+                return value;
+            }
+            set
+            {
+                int clamped = Math.Max(0, Math.Min(100, value));
+                if (this.value == clamped)
+                {
+                    return;
+                }
+
+                this.value = clamped;
+                Invalidate();
+                if (ValueChanged != null)
+                {
+                    ValueChanged(this, EventArgs.Empty);
+                }
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            e.Graphics.SmoothingMode = SmoothingMode.HighQuality;
+
+            Rectangle track = new Rectangle(Width / 2 - 4, 8, 8, Height - 16);
+            using (GraphicsPath path = RoundedRect(track, 4))
+            using (SolidBrush background = new SolidBrush(Color.FromArgb(88, 255, 255, 255)))
+            {
+                e.Graphics.FillPath(background, path);
+            }
+
+            int fillHeight = Math.Max(8, (int)Math.Round(track.Height * (Value / 100.0)));
+            Rectangle fill = new Rectangle(track.X, track.Bottom - fillHeight, track.Width, fillHeight);
+            using (GraphicsPath path = RoundedRect(fill, 4))
+            using (SolidBrush brush = new SolidBrush(Color.FromArgb(225, 255, 255, 255)))
+            {
+                e.Graphics.FillPath(brush, path);
+            }
+
+            int knobY = track.Bottom - (int)Math.Round(track.Height * (Value / 100.0));
+            Rectangle knob = new Rectangle(Width / 2 - 10, knobY - 10, 20, 20);
+            using (SolidBrush shadow = new SolidBrush(Color.FromArgb(150, 0, 0, 0)))
+            {
+                e.Graphics.FillEllipse(shadow, knob.X + 2, knob.Y + 3, knob.Width, knob.Height);
+            }
+            using (SolidBrush knobBrush = new SolidBrush(Color.White))
+            {
+                e.Graphics.FillEllipse(knobBrush, knob);
+            }
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            UpdateValueFromMouse(e.Y);
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            if (e.Button == MouseButtons.Left)
+            {
+                UpdateValueFromMouse(e.Y);
+            }
+        }
+
+        private void UpdateValueFromMouse(int y)
+        {
+            int top = 8;
+            int height = Height - 16;
+            double ratio = 1 - ((y - top) / (double)height);
+            Value = (int)Math.Round(Math.Max(0, Math.Min(1, ratio)) * 100);
+        }
+
+        private static GraphicsPath RoundedRect(Rectangle bounds, int radius)
+        {
+            int diameter = radius * 2;
+            GraphicsPath path = new GraphicsPath();
+            path.AddArc(bounds.X, bounds.Y, diameter, diameter, 180, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Y, diameter, diameter, 270, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(bounds.X, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+    }
+
+    internal sealed class SpeakerButton : Control
+    {
+        private bool hover;
+
+        public SpeakerButton()
+        {
+            SetStyle(ControlStyles.SupportsTransparentBackColor, true);
+            SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
+            SetStyle(ControlStyles.AllPaintingInWmPaint, true);
+            SetStyle(ControlStyles.UserPaint, true);
+            BackColor = Color.Transparent;
+            Cursor = Cursors.Hand;
+        }
+
+        protected override void OnMouseEnter(EventArgs e)
+        {
+            hover = true;
+            Invalidate();
+            base.OnMouseEnter(e);
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            hover = false;
+            Invalidate();
+            base.OnMouseLeave(e);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            e.Graphics.SmoothingMode = SmoothingMode.HighQuality;
+
+            if (hover)
+            {
+                using (SolidBrush hoverBrush = new SolidBrush(Color.FromArgb(70, 255, 255, 255)))
+                {
+                    e.Graphics.FillEllipse(hoverBrush, 0, 0, Width - 1, Height - 1);
+                }
+            }
+
+            using (Pen pen = new Pen(Color.White, 2f))
+            using (SolidBrush brush = new SolidBrush(Color.White))
+            {
+                Point[] body = new Point[]
+                {
+                    new Point(8, 14),
+                    new Point(13, 14),
+                    new Point(20, 8),
+                    new Point(20, 26),
+                    new Point(13, 20),
+                    new Point(8, 20)
+                };
+                e.Graphics.FillPolygon(brush, body);
+                e.Graphics.DrawArc(pen, 20, 11, 8, 12, -45, 90);
+                e.Graphics.DrawArc(pen, 21, 7, 13, 20, -45, 90);
+            }
         }
     }
 }
