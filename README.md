@@ -6,7 +6,7 @@ flow.
 ## Features
 
 - 90-second main countdown with a 1-second start delay.
-- Heating, cooling, dropping dab, and dabbing phases.
+- HEAT, COOLING, GET READY, DROP DAB, and DAB TIME phases.
 - Sound cues for heat completion and timer completion.
 - Borderless custom window with a small top-right close button.
 - Drag-to-move support from the background and large timer text.
@@ -37,7 +37,7 @@ dist\Dab Timer.exe
 Build the release installer after building the app:
 
 ```powershell
-C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /platform:x64 /optimize+ /win32icon:"assets\app.ico" /out:"release\DabTimerSetup-1.0.2.exe" /resource:"dist\Dab Timer.exe,DabTimerInstaller.Payload.Dab Timer.exe" "src\DabTimerInstaller\Program.cs"
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /platform:x64 /optimize+ /win32icon:"assets\app.ico" /out:"release\DabTimerSetup-1.0.3.exe" /resource:"dist\Dab Timer.exe,DabTimerInstaller.Payload.Dab Timer.exe" "src\DabTimerInstaller\Program.cs"
 ```
 
 The installer installs Dab Timer to:
@@ -52,17 +52,25 @@ Windows Apps & Features.
 Silent install and uninstall are available for testing:
 
 ```powershell
-release\DabTimerSetup-1.0.2.exe /silent
+release\DabTimerSetup-1.0.3.exe /silent
 "%LOCALAPPDATA%\Programs\Dab Timer\Uninstall Dab Timer.exe" /uninstall /silent
 ```
 
 For a GitHub Release, upload:
 
 ```text
-release\DabTimerSetup-1.0.2.exe
+release\DabTimerSetup-1.0.3.exe
 ```
 
 ## Changelog
+
+### 1.0.3
+
+- Renamed timer phase labels to all-caps display text.
+- Changed `heating` to `HEAT`, `dropping dab` to `DROP DAB`, and `dabbing` to `DAB TIME`.
+- Added a `GET READY` phase at 20 seconds remaining.
+- Extended the post-finish flow to close at 2:00 total timer time.
+- Updated installer metadata and release artifact for `1.0.3`.
 
 ### 1.0.2
 

@@ -25,7 +25,9 @@ namespace DabTimer
         private const int TotalSeconds = 90;
         private const int HeatFinishedSeconds = 30;
         private const int HeatFinishedRemaining = TotalSeconds - HeatFinishedSeconds;
-        private const int PostPhaseSeconds = 10;
+        private const int GetReadyRemaining = 20;
+        private const int DropDabSeconds = 10;
+        private const int DabTimePostSeconds = 20;
 
         private readonly string settingsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -348,7 +350,7 @@ namespace DabTimer
                 return;
             }
 
-            SetPhase("heating", heatingForeground);
+            SetPhase("HEAT", heatingForeground);
             CountdownTick(sender, e);
             countdownTimer.Start();
         }
@@ -376,8 +378,13 @@ namespace DabTimer
             if (remaining == HeatFinishedRemaining && !heatSoundPlayed)
             {
                 heatSoundPlayed = true;
-                SetPhase("cooling", coolingForeground);
+                SetPhase("COOLING", coolingForeground);
                 PlaySound("DabTimer.Assets.heat_finished.wav");
+            }
+
+            if (remaining == GetReadyRemaining)
+            {
+                SetPhase("GET READY", dropForeground);
             }
 
             remaining -= 1;
@@ -394,15 +401,15 @@ namespace DabTimer
 
             startButton.Enabled = false;
             stopButton.Enabled = false;
-            StartPostPhase("dropping dab");
+            StartPostPhase("DROP DAB");
         }
 
         private void StartPostPhase(string phaseName)
         {
             postPhaseTimer.Stop();
             postPhaseName = phaseName;
-            postPhaseRemaining = PostPhaseSeconds;
-            SetPhase(phaseName, phaseName == "dropping dab" ? dropForeground : dabbingForeground);
+            postPhaseRemaining = phaseName == "DROP DAB" ? DropDabSeconds : DabTimePostSeconds;
+            SetPhase(phaseName, phaseName == "DROP DAB" ? dropForeground : dabbingForeground);
             PostPhaseTick(this, EventArgs.Empty);
             postPhaseTimer.Start();
         }
@@ -413,9 +420,9 @@ namespace DabTimer
 
             if (postPhaseRemaining <= 0)
             {
-                if (postPhaseName == "dropping dab")
+                if (postPhaseName == "DROP DAB")
                 {
-                    StartPostPhase("dabbing");
+                    StartPostPhase("DAB TIME");
                     return;
                 }
 
