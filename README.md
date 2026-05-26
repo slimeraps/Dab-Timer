@@ -13,6 +13,8 @@ flow.
 - WAV WRLD app icon embedded into the executable and taskbar window.
 - Custom gradient background.
 - Default gradient starts as dark gray and blue.
+- Smooth phase text transitions.
+- Smooth gradient fades when colors change.
 - Bottom-left `+` button for opening gradient color controls.
 - Larger transparent RGB sliders for both gradient colors.
 - Hex color fields for typing, selecting, or copying the current gradient colors.
@@ -40,7 +42,7 @@ dist\Dab Timer.exe
 Build the release installer after building the app:
 
 ```powershell
-C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /platform:x64 /optimize+ /win32icon:"assets\app.ico" /out:"release\DabTimerSetup-1.0.4.exe" /resource:"dist\Dab Timer.exe,DabTimerInstaller.Payload.Dab Timer.exe" "src\DabTimerInstaller\Program.cs"
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /platform:x64 /optimize+ /win32icon:"assets\app.ico" /out:"release\DabTimerSetup-1.0.5.exe" /resource:"dist\Dab Timer.exe,DabTimerInstaller.Payload.Dab Timer.exe" "src\DabTimerInstaller\Program.cs"
 ```
 
 The installer installs Dab Timer to:
@@ -55,17 +57,24 @@ Windows Apps & Features.
 Silent install and uninstall are available for testing:
 
 ```powershell
-release\DabTimerSetup-1.0.4.exe /silent
+release\DabTimerSetup-1.0.5.exe /silent
 "%LOCALAPPDATA%\Programs\Dab Timer\Uninstall Dab Timer.exe" /uninstall /silent
 ```
 
 For a GitHub Release, upload:
 
 ```text
-release\DabTimerSetup-1.0.4.exe
+release\DabTimerSetup-1.0.5.exe
 ```
 
 ## Changelog
+
+### 1.0.5
+
+- Added smooth crossfade animation when phase text changes.
+- Added eased gradient animation when color sliders or hex fields change.
+- Made timer reset cancel pending text animations cleanly.
+- Updated installer metadata and release artifact for `1.0.5`.
 
 ### 1.0.4
 

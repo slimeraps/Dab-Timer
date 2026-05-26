@@ -11,7 +11,7 @@ namespace DabTimerInstaller
     internal static class Program
     {
         private const string ProductName = "Dab Timer";
-        private const string ProductVersion = "1.0.4";
+        private const string ProductVersion = "1.0.5";
         private const string Publisher = "slimeraps";
         private const string AppResourceName = "DabTimerInstaller.Payload.Dab Timer.exe";
         private const string AppExecutableName = "Dab Timer.exe";

@@ -39,6 +39,8 @@ namespace DabTimer
 
         private Color gradientStart = ColorTranslator.FromHtml("#171B22");
         private Color gradientEnd = ColorTranslator.FromHtml("#155BBA");
+        private Color renderedGradientStart = ColorTranslator.FromHtml("#171B22");
+        private Color renderedGradientEnd = ColorTranslator.FromHtml("#155BBA");
         private readonly Color defaultForeground = Color.White;
         private readonly Color heatingForeground = ColorTranslator.FromHtml("#ff6118");
         private readonly Color coolingForeground = ColorTranslator.FromHtml("#90dfff");
@@ -71,10 +73,15 @@ namespace DabTimer
         private readonly Timer startDelayTimer;
         private readonly Timer countdownTimer;
         private readonly Timer postPhaseTimer;
+        private readonly Timer gradientAnimationTimer;
+        private readonly Timer phaseAnimationTimer;
 
         private int remaining = TotalSeconds;
         private int postPhaseRemaining;
         private int soundVolume = 30;
+        private string pendingPhaseText = "";
+        private Color pendingPhaseColor = Color.White;
+        private bool phaseFadingOut;
         private bool running;
         private bool heatSoundPlayed;
         private bool updatingColorFields;
@@ -83,6 +90,8 @@ namespace DabTimer
         public TimerForm()
         {
             LoadSettings();
+            renderedGradientStart = gradientStart;
+            renderedGradientEnd = gradientEnd;
 
             Text = "DAB TIME";
             ClientSize = new Size(800, 540);
@@ -210,6 +219,14 @@ namespace DabTimer
             postPhaseTimer = new Timer();
             postPhaseTimer.Interval = 1000;
             postPhaseTimer.Tick += PostPhaseTick;
+
+            gradientAnimationTimer = new Timer();
+            gradientAnimationTimer.Interval = 16;
+            gradientAnimationTimer.Tick += GradientAnimationTick;
+
+            phaseAnimationTimer = new Timer();
+            phaseAnimationTimer.Interval = 16;
+            phaseAnimationTimer.Tick += PhaseAnimationTick;
         }
 
         [DllImport("user32.dll")]
@@ -223,7 +240,7 @@ namespace DabTimer
 
         protected override void OnPaintBackground(PaintEventArgs e)
         {
-            using (LinearGradientBrush brush = new LinearGradientBrush(ClientRectangle, gradientStart, gradientEnd, 135f))
+            using (LinearGradientBrush brush = new LinearGradientBrush(ClientRectangle, renderedGradientStart, renderedGradientEnd, 135f))
             {
                 e.Graphics.FillRectangle(brush, ClientRectangle);
             }
@@ -499,16 +516,63 @@ namespace DabTimer
 
         private void SetDefaultColors()
         {
+            if (phaseAnimationTimer != null)
+            {
+                phaseAnimationTimer.Stop();
+            }
+
+            phaseFadingOut = false;
             phaseLabel.ForeColor = defaultForeground;
+            phaseLabel.TextOpacity = 1f;
             timeLabel.ForeColor = defaultForeground;
             Invalidate();
         }
 
         private void SetPhase(string phase, Color color)
         {
-            phaseLabel.Text = phase;
-            phaseLabel.ForeColor = color;
+            if (phaseLabel.Text == phase)
+            {
+                phaseLabel.ForeColor = color;
+                phaseLabel.TextOpacity = 1f;
+                phaseAnimationTimer.Stop();
+                phaseFadingOut = false;
+            }
+            else
+            {
+                pendingPhaseText = phase;
+                pendingPhaseColor = color;
+                phaseFadingOut = true;
+                if (!phaseAnimationTimer.Enabled)
+                {
+                    phaseAnimationTimer.Start();
+                }
+            }
+
             timeLabel.ForeColor = color;
+        }
+
+        private void PhaseAnimationTick(object sender, EventArgs e)
+        {
+            const float step = 0.12f;
+
+            if (phaseFadingOut)
+            {
+                phaseLabel.TextOpacity = Math.Max(0f, phaseLabel.TextOpacity - step);
+                if (phaseLabel.TextOpacity > 0f)
+                {
+                    return;
+                }
+
+                phaseLabel.Text = pendingPhaseText;
+                phaseLabel.ForeColor = pendingPhaseColor;
+                phaseFadingOut = false;
+            }
+
+            phaseLabel.TextOpacity = Math.Min(1f, phaseLabel.TextOpacity + step);
+            if (phaseLabel.TextOpacity >= 1f)
+            {
+                phaseAnimationTimer.Stop();
+            }
         }
 
         private void ToggleSettings(object sender, EventArgs e)
@@ -537,8 +601,8 @@ namespace DabTimer
             gradientStart = Color.FromArgb(startRedSlider.Value, startGreenSlider.Value, startBlueSlider.Value);
             gradientEnd = Color.FromArgb(endRedSlider.Value, endGreenSlider.Value, endBlueSlider.Value);
             UpdateColorPreviews();
+            StartGradientAnimation();
             SaveSettings();
-            Invalidate();
         }
 
         private void VolumeSliderChanged(object sender, EventArgs e)
@@ -607,8 +671,8 @@ namespace DabTimer
             }
 
             SyncSlidersToColors();
+            StartGradientAnimation();
             SaveSettings();
-            Invalidate();
         }
 
         private void HexBoxLeave(object sender, EventArgs e)
@@ -656,6 +720,49 @@ namespace DabTimer
             startPreview.BackColor = gradientStart;
             endPreview.BackColor = gradientEnd;
             updatingColorFields = false;
+        }
+
+        private void StartGradientAnimation()
+        {
+            if (!gradientAnimationTimer.Enabled)
+            {
+                gradientAnimationTimer.Start();
+            }
+        }
+
+        private void GradientAnimationTick(object sender, EventArgs e)
+        {
+            renderedGradientStart = EaseColor(renderedGradientStart, gradientStart, 0.18);
+            renderedGradientEnd = EaseColor(renderedGradientEnd, gradientEnd, 0.18);
+            Invalidate();
+
+            if (ColorsClose(renderedGradientStart, gradientStart) && ColorsClose(renderedGradientEnd, gradientEnd))
+            {
+                renderedGradientStart = gradientStart;
+                renderedGradientEnd = gradientEnd;
+                gradientAnimationTimer.Stop();
+                Invalidate();
+            }
+        }
+
+        private static Color EaseColor(Color current, Color target, double amount)
+        {
+            return Color.FromArgb(
+                EaseChannel(current.R, target.R, amount),
+                EaseChannel(current.G, target.G, amount),
+                EaseChannel(current.B, target.B, amount));
+        }
+
+        private static int EaseChannel(int current, int target, double amount)
+        {
+            return current + (int)Math.Round((target - current) * amount);
+        }
+
+        private static bool ColorsClose(Color current, Color target)
+        {
+            return Math.Abs(current.R - target.R) <= 1 &&
+                Math.Abs(current.G - target.G) <= 1 &&
+                Math.Abs(current.B - target.B) <= 1;
         }
 
         private void LoadSettings()
@@ -849,6 +956,8 @@ namespace DabTimer
 
     internal sealed class GlowLabel : Label
     {
+        private float textOpacity = 1f;
+
         public GlowLabel()
         {
             SetStyle(ControlStyles.SupportsTransparentBackColor, true);
@@ -857,14 +966,47 @@ namespace DabTimer
             UseCompatibleTextRendering = true;
         }
 
+        public float TextOpacity
+        {
+            get
+            {
+                return textOpacity;
+            }
+            set
+            {
+                float clamped = Math.Max(0f, Math.Min(1f, value));
+                if (Math.Abs(textOpacity - clamped) < 0.001f)
+                {
+                    return;
+                }
+
+                textOpacity = clamped;
+                Invalidate();
+            }
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             e.Graphics.SmoothingMode = SmoothingMode.HighQuality;
             e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
-            Rectangle shadowRect = new Rectangle(ClientRectangle.X + 4, ClientRectangle.Y + 5, ClientRectangle.Width, ClientRectangle.Height);
-            TextRenderer.DrawText(e.Graphics, Text, Font, shadowRect, Color.FromArgb(150, 0, 0, 0), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-            TextRenderer.DrawText(e.Graphics, Text, Font, ClientRectangle, ForeColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            using (StringFormat format = new StringFormat())
+            {
+                format.Alignment = StringAlignment.Center;
+                format.LineAlignment = StringAlignment.Center;
+                format.FormatFlags = StringFormatFlags.NoClip;
+
+                RectangleF shadowRect = new RectangleF(ClientRectangle.X + 4, ClientRectangle.Y + 5, ClientRectangle.Width, ClientRectangle.Height);
+                using (SolidBrush shadow = new SolidBrush(Color.FromArgb((int)(150 * textOpacity), 0, 0, 0)))
+                {
+                    e.Graphics.DrawString(Text, Font, shadow, shadowRect, format);
+                }
+
+                using (SolidBrush foreground = new SolidBrush(Color.FromArgb((int)(255 * textOpacity), ForeColor)))
+                {
+                    e.Graphics.DrawString(Text, Font, foreground, ClientRectangle, format);
+                }
+            }
         }
     }
 
