@@ -31,7 +31,44 @@ The finished executable is:
 dist\Dab Timer.exe
 ```
 
+## Installer
+
+Build the release installer after building the app:
+
+```powershell
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /platform:x64 /optimize+ /win32icon:"assets\app.ico" /out:"release\DabTimerSetup-1.0.exe" /resource:"dist\Dab Timer.exe,DabTimerInstaller.Payload.Dab Timer.exe" "src\DabTimerInstaller\Program.cs"
+```
+
+The installer installs Dab Timer to:
+
+```text
+%LOCALAPPDATA%\Programs\Dab Timer
+```
+
+It also creates Start Menu and Desktop shortcuts and registers an uninstaller in
+Windows Apps & Features.
+
+Silent install and uninstall are available for testing:
+
+```powershell
+release\DabTimerSetup-1.0.exe /silent
+"%LOCALAPPDATA%\Programs\Dab Timer\Uninstall Dab Timer.exe" /uninstall /silent
+```
+
+For a GitHub Release, upload:
+
+```text
+release\DabTimerSetup-1.0.exe
+```
+
 ## Changelog
+
+### 1.0.1
+
+- Added a native Windows setup executable for GitHub Releases.
+- Installer copies the app into `%LOCALAPPDATA%\Programs\Dab Timer`.
+- Installer creates Start Menu and Desktop shortcuts.
+- Installer registers a Windows Apps & Features uninstaller.
 
 ### 1.0
 
