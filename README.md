@@ -14,6 +14,8 @@ flow.
 - Custom gradient background.
 - Default gradient starts as dark gray and blue.
 - Smooth phase text transitions.
+- DROP DAB and DAB TIME slide into the timer's place and take over the screen
+  when the countdown ends.
 - Smooth gradient fades when colors change.
 - Single centered Start/Stop control.
 - Bottom-left `+` button for opening gradient color controls.
@@ -43,7 +45,7 @@ dist\Dab Timer.exe
 Build the release installer after building the app:
 
 ```powershell
-C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /platform:x64 /optimize+ /win32icon:"assets\app.ico" /out:"release\DabTimerSetup-1.1.exe" /resource:"dist\Dab Timer.exe,DabTimerInstaller.Payload.Dab Timer.exe" "src\DabTimerInstaller\Program.cs"
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /platform:x64 /optimize+ /win32icon:"assets\app.ico" /out:"release\DabTimerSetup-1.2.exe" /resource:"dist\Dab Timer.exe,DabTimerInstaller.Payload.Dab Timer.exe" "src\DabTimerInstaller\Program.cs"
 ```
 
 The installer installs Dab Timer to:
@@ -58,17 +60,24 @@ Windows Apps & Features.
 Silent install and uninstall are available for testing:
 
 ```powershell
-release\DabTimerSetup-1.1.exe /silent
+release\DabTimerSetup-1.2.exe /silent
 "%LOCALAPPDATA%\Programs\Dab Timer\Uninstall Dab Timer.exe" /uninstall /silent
 ```
 
 For a GitHub Release, upload:
 
 ```text
-release\DabTimerSetup-1.1.exe
+release\DabTimerSetup-1.2.exe
 ```
 
 ## Changelog
+
+### 1.2
+
+- When the countdown ends, the timer fades out and `DROP DAB` slides down into its place, scaling up to fill the screen.
+- `DAB TIME` crossfades in at the same takeover size afterwards.
+- Hid the disabled Start/Stop button during the takeover; Stop/reset restores the normal layout.
+- Updated installer metadata and release artifact for `1.2`.
 
 ### 1.1
 

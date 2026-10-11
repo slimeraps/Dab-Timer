@@ -27,6 +27,8 @@ namespace DabTimer
         private const int GetReadyRemaining = 20;
         private const int DropDabSeconds = 10;
         private const int DabTimePostSeconds = 20;
+        private const float TakeoverMaxScale = 3.4f;
+        private const float TakeoverTextWidth = 700f;
 
         private readonly string settingsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -74,6 +76,9 @@ namespace DabTimer
         private readonly Timer postPhaseTimer;
         private readonly Timer gradientAnimationTimer;
         private readonly Timer phaseAnimationTimer;
+        private readonly Timer takeoverAnimationTimer;
+        private readonly Rectangle phaseBounds;
+        private readonly Rectangle takeoverBounds;
 
         private int remaining = TotalSeconds;
         private int postPhaseRemaining;
@@ -85,6 +90,10 @@ namespace DabTimer
         private bool heatSoundPlayed;
         private bool updatingColorFields;
         private string postPhaseName = "";
+        private bool takeoverActive;
+        private bool takeoverMoving;
+        private float takeoverScale = 1f;
+        private float takeoverOffsetY;
 
         public TimerForm()
         {
@@ -107,7 +116,9 @@ namespace DabTimer
             phaseLabel.Font = CreateDisplayFont(38f);
             phaseLabel.Text = "DAB TIME";
             phaseLabel.TextAlign = ContentAlignment.MiddleCenter;
-            phaseLabel.SetBounds(0, 46, ClientSize.Width, 76);
+            phaseBounds = new Rectangle(0, 46, ClientSize.Width, 76);
+            takeoverBounds = new Rectangle(0, 40, ClientSize.Width, 440);
+            phaseLabel.Bounds = phaseBounds;
             phaseLabel.MouseDown += DragMouseDown;
             Controls.Add(phaseLabel);
 
@@ -220,6 +231,10 @@ namespace DabTimer
             phaseAnimationTimer = new Timer();
             phaseAnimationTimer.Interval = 16;
             phaseAnimationTimer.Tick += PhaseAnimationTick;
+
+            takeoverAnimationTimer = new Timer();
+            takeoverAnimationTimer.Interval = 16;
+            takeoverAnimationTimer.Tick += TakeoverAnimationTick;
         }
 
         [DllImport("user32.dll")]
@@ -391,6 +406,7 @@ namespace DabTimer
             }
 
             StopAllTimers();
+            EndTakeover();
             running = true;
             remaining = TotalSeconds;
             postPhaseRemaining = 0;
@@ -458,6 +474,7 @@ namespace DabTimer
 
             toggleButton.Enabled = false;
             StartPostPhase("DROP DAB");
+            BeginTakeover();
         }
 
         private void StartPostPhase(string phaseName)
@@ -492,6 +509,7 @@ namespace DabTimer
         private void ResetTimer(bool animatePhase)
         {
             StopAllTimers();
+            EndTakeover();
             running = false;
             remaining = TotalSeconds;
             postPhaseRemaining = 0;
@@ -580,6 +598,89 @@ namespace DabTimer
             {
                 phaseAnimationTimer.Stop();
             }
+        }
+
+        private void BeginTakeover()
+        {
+            if (takeoverActive)
+            {
+                return;
+            }
+
+            takeoverActive = true;
+            takeoverMoving = false;
+            toggleButton.Visible = false;
+            takeoverAnimationTimer.Start();
+        }
+
+        private void TakeoverAnimationTick(object sender, EventArgs e)
+        {
+            if (!takeoverMoving)
+            {
+                // Fade the timer out first so the phase text has the space to itself.
+                timeLabel.TextOpacity = Math.Max(0f, timeLabel.TextOpacity - 0.12f);
+                if (timeLabel.TextOpacity > 0f)
+                {
+                    return;
+                }
+
+                timeLabel.Visible = false;
+                phaseLabel.Bounds = takeoverBounds;
+                phaseLabel.TextOffsetY = CenterY(phaseBounds) - CenterY(takeoverBounds);
+                takeoverOffsetY = CenterY(timeLabel.Bounds) - CenterY(takeoverBounds);
+                takeoverScale = CalculateTakeoverScale();
+                takeoverMoving = true;
+            }
+
+            phaseLabel.TextScale = EaseFloat(phaseLabel.TextScale, takeoverScale, 0.18f);
+            phaseLabel.TextOffsetY = EaseFloat(phaseLabel.TextOffsetY, takeoverOffsetY, 0.18f);
+
+            if (Math.Abs(phaseLabel.TextScale - takeoverScale) < 0.005f &&
+                Math.Abs(phaseLabel.TextOffsetY - takeoverOffsetY) < 0.5f)
+            {
+                phaseLabel.TextScale = takeoverScale;
+                phaseLabel.TextOffsetY = takeoverOffsetY;
+                takeoverAnimationTimer.Stop();
+            }
+        }
+
+        private void EndTakeover()
+        {
+            takeoverAnimationTimer.Stop();
+            takeoverActive = false;
+            takeoverMoving = false;
+            phaseLabel.Bounds = phaseBounds;
+            phaseLabel.TextScale = 1f;
+            phaseLabel.TextOffsetY = 0f;
+            timeLabel.TextOpacity = 1f;
+            timeLabel.Visible = true;
+            toggleButton.Visible = true;
+        }
+
+        private float CalculateTakeoverScale()
+        {
+            float widest = 1f;
+            using (Graphics graphics = phaseLabel.CreateGraphics())
+            {
+                string[] phases = new string[] { "DROP DAB", "DAB TIME" };
+                for (int i = 0; i < phases.Length; i++)
+                {
+                    SizeF size = graphics.MeasureString(phases[i], phaseLabel.Font, PointF.Empty, StringFormat.GenericTypographic);
+                    widest = Math.Max(widest, size.Width);
+                }
+            }
+
+            return Math.Min(TakeoverMaxScale, TakeoverTextWidth / widest);
+        }
+
+        private static float CenterY(Rectangle bounds)
+        {
+            return bounds.Top + bounds.Height / 2f;
+        }
+
+        private static float EaseFloat(float current, float target, float amount)
+        {
+            return current + (target - current) * amount;
         }
 
         private void ToggleSettings(object sender, EventArgs e)
@@ -964,6 +1065,8 @@ namespace DabTimer
     internal sealed class GlowLabel : Label
     {
         private float textOpacity = 1f;
+        private float textScale = 1f;
+        private float textOffsetY;
 
         public GlowLabel()
         {
@@ -992,28 +1095,77 @@ namespace DabTimer
             }
         }
 
+        public float TextScale
+        {
+            get
+            {
+                return textScale;
+            }
+            set
+            {
+                float clamped = Math.Max(0.1f, value);
+                if (Math.Abs(textScale - clamped) < 0.0001f)
+                {
+                    return;
+                }
+
+                textScale = clamped;
+                Invalidate();
+            }
+        }
+
+        public float TextOffsetY
+        {
+            get
+            {
+                return textOffsetY;
+            }
+            set
+            {
+                if (Math.Abs(textOffsetY - value) < 0.01f)
+                {
+                    return;
+                }
+
+                textOffsetY = value;
+                Invalidate();
+            }
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             e.Graphics.SmoothingMode = SmoothingMode.HighQuality;
-            e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+            // Grid fitting makes scaled text wobble while it animates.
+            e.Graphics.TextRenderingHint = textScale == 1f
+                ? System.Drawing.Text.TextRenderingHint.AntiAliasGridFit
+                : System.Drawing.Text.TextRenderingHint.AntiAlias;
 
             using (StringFormat format = new StringFormat())
             {
                 format.Alignment = StringAlignment.Center;
                 format.LineAlignment = StringAlignment.Center;
-                format.FormatFlags = StringFormatFlags.NoClip;
+                format.FormatFlags = StringFormatFlags.NoClip | StringFormatFlags.NoWrap;
 
-                RectangleF shadowRect = new RectangleF(ClientRectangle.X + 4, ClientRectangle.Y + 5, ClientRectangle.Width, ClientRectangle.Height);
                 using (SolidBrush shadow = new SolidBrush(Color.FromArgb((int)(150 * textOpacity), 0, 0, 0)))
                 {
-                    e.Graphics.DrawString(Text, Font, shadow, shadowRect, format);
+                    DrawScaledText(e.Graphics, shadow, format, 4, 5);
                 }
 
                 using (SolidBrush foreground = new SolidBrush(Color.FromArgb((int)(255 * textOpacity), ForeColor)))
                 {
-                    e.Graphics.DrawString(Text, Font, foreground, ClientRectangle, format);
+                    DrawScaledText(e.Graphics, foreground, format, 0, 0);
                 }
             }
+        }
+
+        private void DrawScaledText(Graphics graphics, Brush brush, StringFormat format, float offsetX, float offsetY)
+        {
+            GraphicsState state = graphics.Save();
+            graphics.TranslateTransform(Width / 2f + offsetX, Height / 2f + textOffsetY + offsetY);
+            graphics.ScaleTransform(textScale, textScale);
+            RectangleF layout = new RectangleF(-Width / 2f, -Height / 2f, Width, Height);
+            graphics.DrawString(Text, Font, brush, layout, format);
+            graphics.Restore(state);
         }
     }
 
